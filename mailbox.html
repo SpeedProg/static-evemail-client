@@ -1,4 +1,17 @@
+<div class="row">
+<div class="col">
 <h1>Mailbox</h1>
+</div>
+<div class="col justify-content-end">
+<!-- New mail button. -->
+<button class="btn btn-primary new-mail float-right"
+	ng-if="hasAuthentication();"
+	ng-click="newMail();">
+	<span class="fa fa-envelope" aria-hidden="true"></span>
+	New Mail
+</button>
+</div>
+</div>
 <!-- Authentication error message. -->
 <p ng-if="!hasAuthentication();">
 	You must
@@ -13,136 +26,196 @@
 	<div class="text-center p-4" ng-if="loadingMain > 0">
 		<span class="fa fa-spinner fa-spin fa-5x"></span>
 	</div>
-	<!-- Main mail list. -->
-	<section class="mail-list" ng-if="loadingMain == 0">
-		<!-- New mail button. -->
-		<button class="btn btn-primary new-mail"
-			ng-click="newMail();">
-			<span class="fa fa-envelope" aria-hidden="true"></span>
-			New Mail
-		</button>
-		<!-- Repeat over all mails. -->
-		<article ng-repeat="mail in mails | orderObjectBy:['-timestamp']"
-			class="mail-list-item"
-			ng-class="{
-				'read': mail.is_read,
-				'not-read': !mail.is_read,
-			}">
-			<!-- Arrow to desinate open/closed messages. -->
-			<span class="fa"
-				ng-class="{
-					'fa-caret-down': open == mail.mail_id,
-					'fa-caret-right': open != mail.mail_id,
-				}">
-			</span>
-			<!-- Timestamp and title of the message. -->
-			<span class="title"
-				ng-click="clickMail(mail.mail_id);">
-				[{{mail.timestamp}}] {{mail.subject}}
-			</span>
-			<!-- Hover controls on the right side. -->
-			<span class="controls float-right">
-				<!-- Toggle read/unread. -->
-				<tooltip class="fa fa-eye"
-					data-toggle="tooltip"
-					data-placement="top"
-					data-animation="false"
-					title="Toggle Read/Unread"
-					ng-click="toggleRead(mail.mail_id);">
-				</tooltip>
-				<!-- Delete the mail. -->
-				<tooltip class="fa fa-trash"
-					data-toggle="tooltip"
-					data-placement="top"
-					data-animation="false"
-					title="Delete"
-					ng-click="deleteMail(mail.mail_id);">
-				</tooltip>
-			</span>
-			<!-- Actual mail message output. -->
-			<section class="mail-content"
-				ng-if="open == mail.mail_id">
-				<!-- Spinner for individual messages loading. -->
-				<div class="text-center p-4" ng-if="loadingMail[mail.mail_id] > 0">
-					<span class="fa fa-spinner fa-spin fa-4x"></span>
-				</div>
-				<!-- The message section itself. -->
-				<div class="media" ng-if="loadingMail[mail.mail_id] == 0">
-					<!-- Character portrait of who sent the mail. -->
-					<img class="d-flex mr-3"
-						ng-src="//imageserver.eveonline.com/Character/{{mail.full.from}}_128.jpg"
-						alt="Character Portrait">
-					<!-- Content. -->
-					<div class="media-body">
-						<!-- Additional controls at the top of the mail. -->
-						<div class="main-controls">
-							<!-- Toggle read/unread. -->
-							<tooltip class="fa fa-eye"
-								data-toggle="tooltip"
-								data-placement="top"
-								data-animation="false"
-								title="Toggle Read/Unread"
-								ng-click="toggleRead(mail.mail_id);">
-							</tooltip>
-							<!-- Reply to the sender. -->
-							<tooltip class="fa fa-reply"
-								data-toggle="tooltip"
-								data-placement="top"
-								data-animation="false"
-								title="Reply"
-								ng-click="newMail(
-									mail,
-									'one'
-								);">
-							</tooltip>
-							<!-- Reply to sender and recipients. -->
-							<tooltip class="fa fa-reply-all"
-								data-toggle="tooltip"
-								data-placement="top"
-								data-animation="false"
-								title="Reply All"
-								ng-click="newMail(
-									mail,
-									'all'
-								);">
-							</tooltip>
-							<!-- Delete the mail. -->
-							<tooltip class="fa fa-trash"
-								data-toggle="tooltip"
-								data-placement="top"
-								data-animation="false"
-								title="Delete"
-								ng-click="deleteMail(mail.mail_id);">
-							</tooltip>
+	<div class="row">
+		<!-- Sidebar -->
+		<div class="col-sm-3" >
+			<!-- Labels -->
+			<nav role="navigation" class="navbar navbar-dark flex-column nav-pills">
+				<h2>Labels</h2>
+				<ul class="navbar-nav" id="navbarLabels">
+				<li class="nav-item">
+					<a class="nav-link"
+						ng-click="shown_labels.has(-1) ? removeShownLabel(-1) : addShownLabel(-1)"
+						ng-class="{
+							'active': shown_labels.has(-1),
+						}"
+						>No Labels</a>
+				</li>
+				<li class="nav-item"
+				ng-repeat="label in labels">
+					<a class="nav-link"
+							ng-click="shown_labels.has(label.label_id) ? removeShownLabel(label.label_id) : addShownLabel(label.label_id)"
+							ng-class="{
+								'active': shown_labels.has(label.label_id),
+							}"
+							>{{label.name}}</a>
+				</li>
+				</ul>
+			</nav>
+			<!-- Mailinglists -->
+			<nav role="navigation" class="navbar navbar-dark flex-column nav-pills">
+				<h2>Mailing lists</h2>
+				<ul class="navbar-nav" id="navbarML">
+					<li class="nav-item">
+						<a class="nav-link"
+							ng-click="shown_mailing_list == -2 ? unsetShownMailingList() : setShownMailingList(-2)"
+							ng-class="{
+								'active': shown_mailing_list == -2,
+							}"
+							>All (Including Personal)</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link"
+							ng-click="shown_mailing_list == -3 ? unsetShownMailingList() : setShownMailingList(-3)"
+							ng-class="{
+								'active': shown_mailing_list == -3,
+							}"
+							>All Mailing lists</a>
+					</li>
+					<li class="nav-item"
+						ng-repeat="ml in mailing_lists">
+							<a class="nav-link"
+							ng-click="shown_mailing_list == ml.mailing_list_id ? unsetShownMailingList() : setShownMailingList(ml.mailing_list_id)"
+							ng-class="{
+								'active': shown_mailing_list == ml.mailing_list_id,
+							}"
+							>{{ml.name}}</a>
+					</li>
+				</ul>
+			</nav>
+		</div>
+		<!-- Main mail list. -->
+		<div class="col-sm-9">
+			<section class="mail-list" ng-if="loadingMain == 0">
+				<!-- Repeat over all mails. -->
+				<article ng-repeat="mail in mails | filterMailByFunc:shouldShowByLabel | filterMailByFunc:shouldShowByMailingList | orderObjectBy:['-timestamp']"
+					class="mail-list-item"
+					ng-class="{
+						'read': mail.is_read,
+						'not-read': !mail.is_read,
+					}">
+					<!-- Arrow to desinate open/closed messages. -->
+					<span class="fa"
+						ng-class="{
+							'fa-caret-down': open == mail.mail_id,
+							'fa-caret-right': open != mail.mail_id,
+						}">
+					</span>
+					<!-- Timestamp and title of the message. -->
+					<span class="title"
+						ng-click="clickMail(mail.mail_id);">
+						[{{mail.timestamp}}] {{mail.subject}}
+					</span>
+					<!-- Hover controls on the right side. -->
+					<span class="controls float-right">
+						<!-- Toggle read/unread. -->
+						<tooltip class="fa fa-eye"
+							data-toggle="tooltip"
+							data-placement="top"
+							data-animation="false"
+							title="Toggle Read/Unread"
+							ng-click="toggleRead(mail.mail_id);">
+						</tooltip>
+						<!-- Delete the mail. -->
+						<tooltip class="fa fa-trash"
+							data-toggle="tooltip"
+							data-placement="top"
+							data-animation="false"
+							title="Delete"
+							ng-click="deleteMail(mail.mail_id);">
+						</tooltip>
+					</span>
+					<!-- Actual mail message output. -->
+					<section class="mail-content"
+						ng-if="open == mail.mail_id">
+						<!-- Spinner for individual messages loading. -->
+						<div class="text-center p-4" ng-if="loadingMail[mail.mail_id] > 0">
+							<span class="fa fa-spinner fa-spin fa-4x"></span>
 						</div>
-						<!-- Output the mail subject. -->
-						<h4>{{mail.subject}}</h4>
-						<!-- Output who it's from and who they send it to. -->
-						<h5>
-							From:
-							{{
-								parseLookup([{
-									"recipient_id": mail.full.from,
-									"recipient_type": "character"
-								}], true)
-							}}
-							<small>
-								To:
-								{{parseLookup(mail.full.recipients, true)}}
-							</small>
-						</h5>
-						<!-- Output the mail itself. -->
-						<span class="mail-body" ng-bind-html="mail.full.body | mailHtmlFix:marketItems | trust"></span>
-					</div>
-				</div>
+						<!-- The message section itself. -->
+						<div class="media" ng-if="loadingMail[mail.mail_id] == 0">
+							<!-- Character portrait of who sent the mail. -->
+							<img class="d-flex mr-3"
+								ng-src="//imageserver.eveonline.com/Character/{{mail.full.from}}_128.jpg"
+								alt="Character Portrait">
+							<!-- Content. -->
+							<div class="media-body">
+								<!-- Additional controls at the top of the mail. -->
+								<div class="main-controls">
+									<!-- Toggle read/unread. -->
+									<tooltip class="fa fa-eye"
+										data-toggle="tooltip"
+										data-placement="top"
+										data-animation="false"
+										title="Toggle Read/Unread"
+										ng-click="toggleRead(mail.mail_id);">
+									</tooltip>
+									<!-- Reply to the sender. -->
+									<tooltip class="fa fa-reply"
+										data-toggle="tooltip"
+										data-placement="top"
+										data-animation="false"
+										title="Reply"
+										ng-click="newMail(
+											mail,
+											'one'
+										);">
+									</tooltip>
+									<!-- Reply to sender and recipients. -->
+									<tooltip class="fa fa-reply-all"
+										data-toggle="tooltip"
+										data-placement="top"
+										data-animation="false"
+										title="Reply All"
+										ng-click="newMail(
+											mail,
+											'all'
+										);">
+									</tooltip>
+									<!-- Delete the mail. -->
+									<tooltip class="fa fa-trash"
+										data-toggle="tooltip"
+										data-placement="top"
+										data-animation="false"
+										title="Delete"
+										ng-click="deleteMail(mail.mail_id);">
+									</tooltip>
+								</div>
+								<!-- Output the mail subject. -->
+								<h4>{{mail.subject}}</h4>
+								<!-- Output who it's from and who they send it to. -->
+								<h5>
+									From:
+									{{
+										parseLookup([{
+											"recipient_id": mail.full.from,
+											"recipient_type": "character"
+										},
+										{
+											"recipient_id": mail.full.from,
+											"recipient_type": "mailing_list"
+										}
+										], true)
+									}}
+									<small>
+										To:
+										{{parseLookup(mail.full.recipients, true)}}
+									</small>
+								</h5>
+								<!-- Output the mail itself. -->
+								<span class="mail-body" ng-bind-html="mail.full.body | mailHtmlFix:marketItems | trust"></span>
+							</div>
+						</div>
+					</section>
+				</article>
+				<!-- Load more button. -->
+				<button class="btn btn-block btn-link"
+					ng-click="loadMore();">
+					Load More
+				</button>
 			</section>
-		</article>
-		<!-- Load more button. -->
-		<button class="btn btn-block btn-link"
-			ng-click="loadMore();">
-			Load More
-		</button>
-	</section>
+		</div>
+	</div>
 </div>
 <!-- New mail modal. -->
 <div class="modal fade" id="newMailModal" tabindex="-1" role="dialog" aria-labelledby="newMailModalLabel" aria-hidden="true">

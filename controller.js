@@ -95,6 +95,22 @@ mail.filter("orderObjectBy", function() {
 	};
 });
 
+mail.filter("filterMailByFunc", function() {
+	return function(items, func) {
+		var filtered = [];
+
+		if (typeof fields == "string") fields = [fields];
+
+		angular.forEach(items, function(item) {
+			if (func(item)) {
+				filtered.push(item);
+			}
+		});
+
+		return filtered;
+	};
+});
+
 mail.filter("trust", [
 	"$sce",
 	function($sce) {
@@ -337,8 +353,13 @@ mail.controller("MailboxController", [
 
 		$scope.mails = {};
 		$scope.open = null;
+		$scope.labels = {};
+		$scope.mailing_lists = {};
 
 		$scope.marketItems = [];
+		
+		$scope.shown_labels = new Set();
+		$scope.shown_mailing_list = -2;
 
 		$scope.send = {
 			body: "",
@@ -512,6 +533,112 @@ mail.controller("MailboxController", [
 					$scope.$apply();
 				});
 		};
+		
+		$scope.setShownMailingList = function(ml_id) {
+			$scope.shown_mailing_list = ml_id;
+		}
+		
+		$scope.unsetShownMailingList = function() {
+			$scope.setShownMailingList(-1);
+		}
+		
+		$scope.addShownLabel = function(label_id) {
+			$scope.shown_labels.add(label_id);
+		}
+		
+		$scope.removeShownLabel = function(label_id) {
+			$scope.shown_labels.delete(label_id);
+		}
+		
+		$scope.setShownLabel = function(label_id) {
+			$scope.shown_labels.clear()
+			$scope.shown_labels.add(label_id);
+		}
+		
+		$scope.shouldShowByLabel = function(mail) {
+			if ($scope.shown_labels.size <= 0) {
+				return true;
+			}
+			
+			// if no labels is selected
+			if ($scope.shown_labels.has(-1)) {
+				if (mail.labels.length == 0) {
+					return true;
+				}
+			}
+			for(label_id of mail.labels) {
+				
+				if ($scope.shown_labels.has(label_id)) {
+					return true;
+				}
+			}
+			return false;
+		}
+		
+		$scope.shouldShowByMailingList = function(mail) {
+			
+			// -1 == All => Show ml and normal mail
+			if ($scope.shown_mailing_list == -2) {
+				return true;
+			}
+			
+			// show for all mailing lists
+			if ($scope.shown_mailing_list == -3) {
+				return $scope.isInAMailingList(mail)
+			}
+			
+			// no ml selected
+			if ($scope.shown_mailing_list == -1) {
+				// a mail to our char
+				if ($scope.isDirectMail(mail)) {
+					return true;
+				}
+				return false;
+			}
+			
+			if($scope.isInMailingList(mail, $scope.shown_mailing_list)) {
+				return true;
+			}
+			
+			return false;
+		}
+		
+		$scope.isInAMailingList = function(mail) {
+			for(recipient of mail.recipients) {
+				if (recipient.recipient_type == "mailing_list") {
+					return true;
+				}
+			}
+			return false;
+		}
+		
+		$scope.isInMailingList = function(mail, ml_id) {
+			for(recipient of mail.recipients) {
+				if (recipient.recipient_type == "mailing_list" && recipient.recipient_id == ml_id) {
+					return true;
+				}
+			}
+			return false;
+		}
+		
+		$scope.isDirectMail = function(mail) {
+			for(recipient of mail.recipients) {
+				if (recipient.recipient_type == "alliance"
+					|| recipient.recipient_type == "corporation") {
+					return true;
+				}
+				if (recipient.recipient_type == "character"
+					&& recipient.recipient_id == $scope.$store.characterId) {
+					return true;
+				}
+			}
+			
+			return false;
+		}
+		
+		$scope.isMailingListId = function(id) {
+			return $scope.$store.lookup["mailing_list"][id] != undefined;
+		}
 
 		$scope.clickMail = function(id) {
 			if ($scope.open != null && !$scope.mails[$scope.open].is_read) {
@@ -772,6 +899,21 @@ mail.controller("MailboxController", [
 					console.log(error);
 				});
 		};
+		
+		$scope.addMailingListIfUnknow = function(mail) {
+			let ml_id = -1;
+			for(let r of mail.recipients) {
+				if (r.recipient_type == "mailing_list") {
+					if ($scope.mailing_lists[r.recipient_id] == undefined) {
+						$scope.mailing_lists[r.recipient_id] = {
+								"mailing_list_id" : r.recipient_id,
+								"name" : "Unknown: " + r.recipient_id
+						};
+					}
+				}
+			}
+			$scope.mailing_lists
+		}
 
 		// ==================== EVENTS AND INTERVALS
 
@@ -798,12 +940,28 @@ mail.controller("MailboxController", [
 				};
 
 				$scope.loadingMain++;
+				// load labels
+				client.Mail
+					.get_characters_character_id_mail_labels(params)
+					.then(function(data) {
+						for(let i in data.obj.labels) {
+							$scope.labels[data.obj.labels[i].label_id] = data.obj.labels[i];
+						}
+						$scope.loadingMain--;
+						$scope.$apply();
+					})
+					.catch(function(error) {
+						console.log(error);
+					});
+				
+				$scope.loadingMain++;
 				client.Mail
 					.get_characters_character_id_mail(params)
 					.then(function(data) {
 						for (i in data.obj) {
 							$scope.mails[data.obj[i].mail_id] = data.obj[i];
 							$scope.loadingMail[data.obj[i].mail_id] = 0;
+							$scope.addMailingListIfUnknow(data.obj[i]);
 						}
 						$scope.loadingMain--;
 						$scope.$apply();
@@ -822,6 +980,8 @@ mail.controller("MailboxController", [
 								item.mailing_list_id
 							] =
 								item.name;
+							
+							$scope.mailing_lists[item.mailing_list_id] = item;
 						}
 						$scope.loadingMain--;
 						$scope.$apply();
