@@ -360,6 +360,8 @@ mail.controller("MailboxController", [
 		
 		$scope.shown_labels = new Set();
 		$scope.shown_mailing_list = -2;
+		
+		$scope.min_loaded_visible_mails = 50;
 
 		$scope.send = {
 			body: "",
@@ -709,19 +711,19 @@ mail.controller("MailboxController", [
 					});
 			}
 		};
-
-		$scope.loadMore = function() {
+		
+		$scope.loadMails = function(wantToLoad, amountLoaded = 0, last = null) {
 			// Set up our params.
 			var params = {
 				character_id: $scope.$store.characterId,
 			};
-
+			
 			// Check if we need to pass and ID.
-			var last = null;
-			for (i in $scope.mails)
-				if (last == null || $scope.mails[i].mail_id < last)
-					last = $scope.mails[i].mail_id;
-
+			if (last == null) {
+				for (i in $scope.mails)
+					if (last == null || $scope.mails[i].mail_id < last)
+						last = $scope.mails[i].mail_id;
+			}
 			if (last != null) params.last_mail_id = last;
 
 			// Actually do the call.
@@ -732,14 +734,29 @@ mail.controller("MailboxController", [
 					for (i in data.obj) {
 						$scope.mails[data.obj[i].mail_id] = data.obj[i];
 						$scope.loadingMail[data.obj[i].mail_id] = 0;
+						if ($scope.shouldShowByLabel(data.obj[i]) && $scope.shouldShowByMailingList(data.obj[i]))
+							amountLoaded++;
+
+						if (last == null || data.obj[i].mail_id < last)
+							last = data.obj[i].mail_id;
 					}
 					$scope.loadingMore--;
 					$scope.$apply();
+					// if we get less then 50 we reached the end
+					if (data.obj.length >= 50 && wantToLoad > amountLoaded) {
+						$scope.loadMails(wantToLoad, amountLoaded, last);
+					}
 				})
 				.catch(function(error) {
 					console.log(error);
 				});
 		};
+
+		$scope.loadMore = function() {
+			$scope.loadMails($scope.min_loaded_visible_mails);
+		};
+		
+		
 
 		$scope.newMail = function(mail, to) {
 			$scope.send = {
