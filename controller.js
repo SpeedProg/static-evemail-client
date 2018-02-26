@@ -625,6 +625,12 @@ mail.controller("MailboxController", [
 		
 		$scope.isDirectMail = function(mail) {
 			for(recipient of mail.recipients) {
+				
+				// mail send my the user
+				if (mail.from == $scope.$store.characterId) {
+					return true;
+				}
+				
 				if (recipient.recipient_type == "alliance"
 					|| recipient.recipient_type == "corporation") {
 					return true;
